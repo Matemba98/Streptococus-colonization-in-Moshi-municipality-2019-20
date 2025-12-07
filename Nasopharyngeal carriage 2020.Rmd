@@ -1,0 +1,559 @@
+---
+title: "Survey 2020 n = 302"
+author: "Brian"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+# Run the chunk below to prepare your work space browser (history), clean console and delete and saved plots.
+
+rm(list=ls())
+while(!dev.cur())dev.off() 
+cat("\014")
+```
+
+```{r}
+# Load required packages using pacman
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, 
+               dplyr,
+               gtsummary, 
+               readr,
+               janitor,
+               haven,
+               anthro,
+               logbin,
+               purrr,
+               broom,
+               psych,
+               car,
+               glmnet,
+               vcd,
+               nortest,
+               olsrr,
+               MASS,
+               VIM,
+               naniar,
+               janitor,
+               scales
+               )
+```
+
+```{r}
+survey20 <- read_dta("C:/Users/Matem/OneDrive/Respiatory (Dr.Ngocho)/Re_ SPN database/spn2020_clinical.dta")
+
+survey20 <- survey20 %>% 
+  rename(PID = sid)
+
+serotypes <- read.csv("C:/Users/Matem/OneDrive/Respiatory (Dr.Ngocho)/Re_ SPN database/spn2019_2020_Serotypes.csv")
+
+serotypes <- serotypes %>%
+  rename(PID = sid)
+serotypes <- serotypes[-c(375:438), ]
+serotypes20 <- serotypes[-c(181:374), ]
+```
+
+```{r}
+survey20 <- survey20 %>%
+  dplyr::select(
+    PID,
+    date_int,
+    parent_age,
+    parent_dob,
+    parent_sex,
+    street,
+    edu_level,
+    income_activity,
+    income_activity_others,
+    monthly_income,
+    child_age,
+    child_sex,
+    child_dob,
+    birth_weight,
+    breastfeed_stat,
+    breastfeeding_duration,
+    child_education,
+    Clinic_attendance,
+    people_no,
+    u5_sibling,
+    u5_PCV_sibling1,
+    u5_PCV_sibling2,
+    child_cough,
+    bedroom_no,
+    sleepinginchild_bedroom,
+    child_bed,
+    cigarette_smoking,
+    chronic_diseases,
+    vaccine_supplements,
+    HIV_status,
+    childweight,
+    childheight,
+    temperature,
+    fuel_type,
+    common_fuel,
+    child_duringcooking,
+    antibiotic_use
+  )
+```
+
+Missing
+
+```{r}
+missing20 <- colSums(is.na(survey20))
+missing20
+```
+
+Date of Interview
+
+```{r}
+survey20 <- survey20 %>%
+  mutate(date_int = as.Date(as.character(date_int), format = "%Y-%m-%d"))
+typeof(survey20$date_int)
+unique(survey20$date_int)
+```
+
+Parent's sex
+
+```{r}
+class(survey20$parent_sex)
+survey20$parent_sex <- ifelse(survey20$parent_sex == 1, 2, 1)
+survey20$parent_sex <- factor(survey20$parent_sex, levels = c(1, 2), labels = c("Female", "Male"))
+unique(survey20$parent_sex)
+table(survey20$parent_sex)
+```
+
+Parent's date of birth
+
+```{r}
+survey20 <- survey20 %>%
+  mutate(parent_dob = as.Date(as.character(parent_dob), format = "%Y-%m-%d"))
+typeof(survey20$parent_dob)
+unique(survey20$parent_dob)
+```
+
+Child education
+
+```{r}
+typeof(survey20$child_education)
+unique(survey20$child_education)
+survey20$child_education <- ifelse(survey20$child_education == 1, 1, 0)
+survey20$child_education <- factor(survey20$child_education, levels = c(0, 1), labels = c("No", "Yes"))
+table(survey20$child_education)
+```
+
+Clinic attendance
+
+```{r}
+typeof(survey20$Clinic_attendance)
+survey20$Clinic_attendance <- ifelse(survey20$Clinic_attendance == 1, 1, 0)
+survey20$Clinic_attendance <- factor(survey20$Clinic_attendance, levels = c(0, 1), labels = c("No", "Yes"))
+table(survey20$Clinic_attendance)
+```
+
+Child cough
+
+```{r}
+typeof(survey20$child_cough)
+table(survey20$child_cough)
+survey20$child_cough <- ifelse(survey20$child_cough == 1, 1, 0)
+survey20$child_cough <- factor(survey20$child_cough, levels = c(0, 1), labels = c("No", "Yes"))
+table(survey20$child_cough)
+```
+
+Chronic diseases
+
+```{r}
+typeof(survey20$chronic_diseases)
+table(survey20$chronic_diseases)
+survey20$chronic_diseases <- ifelse(survey20$chronic_diseases == 1, 1, 0)
+survey20$chronic_diseases <- factor(survey20$chronic_diseases, levels = c(0, 1), labels = c("No", "Yes"))
+table(survey20$chronic_diseases)
+```
+
+Antibiotic use
+
+```{r}
+typeof(survey20$antibiotic_use)
+table(survey20$antibiotic_use)
+survey20$antibiotic_use <- ifelse(survey20$antibiotic_use == 1, 1, 0)
+survey20$antibiotic_use <- factor(survey20$antibiotic_use, levels = c(0, 1), labels = c("No", "Yes"))
+unique(survey20$antibiotic_use)
+table(survey20$antibiotic_use)
+```
+
+Education level
+
+```{r}
+table(survey20$edu_level)
+survey20 <- survey20 %>%
+  mutate(education_level = case_when(
+    edu_level %in% c(1, 2, 3) ~ "No formal/Primary",
+    edu_level %in% c(4, 5, 6, 7) ~ "Secondary/Higher"
+  ))
+table(survey20$education_level)
+```
+
+Occupation
+
+```{r}
+table(survey20$income_activity)
+unique(survey20$income_activity)
+survey20 <- survey20 %>%
+  mutate(occupation = case_when(
+    income_activity %in% c(2, 5) ~ "Employed/Bussiness",
+    income_activity %in% c(1, 3, 4, 6) ~ "Unemployed/Farmer"
+  ))
+table(survey20$occupation)
+```
+
+Monthly income
+
+```{r}
+typeof(survey20$monthly_income)
+table(survey20$monthly_income)
+survey20$monthly_income <- as.integer(survey20$monthly_income)
+typeof(survey20$monthly_income)
+survey20 <- survey20 %>%
+  mutate(hhincome = case_when(
+    monthly_income <= 500000 ~ "≤ 500,000",
+    monthly_income > 500000 & monthly_income <= 1000000 ~ "≤ 1,000,000",
+    monthly_income > 1000000 ~ "> 1,000,000"
+  ))
+table(survey20$hhincome)
+
+typeof(survey20$monthly_income)
+table(survey20$monthly_income)
+survey20$monthly_income <- as.integer(survey20$monthly_income)
+typeof(survey20$monthly_income)
+survey20 <- survey20 %>%
+  mutate(income = case_when(
+    monthly_income <= 50000 ~ "≤ 50,000",
+    monthly_income > 50000 ~ "> 50,000"
+  ))
+table(survey20$income)
+```
+
+Child age in months
+
+```{r}
+typeof(survey20$child_age)
+survey20$child_age <- as.integer(survey20$child_age)
+survey20 <- survey20 %>%
+  mutate(child_agecat = case_when(
+    child_age <= 24 ~ "≤ 24",
+    child_age > 24 ~ "> 24"
+  ))
+table(survey20$child_agecat)
+```
+
+Child's sex
+
+```{r}
+typeof(survey20$child_sex)
+table(survey20$child_sex)
+unique(survey20$child_sex)
+survey20$child_sex <- ifelse(survey20$child_sex == 1, 2, 1)
+survey20$child_sex <- factor(survey20$child_sex, levels = c(1, 2), labels = c("Female", "Male"))
+unique(survey20$child_sex)
+table(survey20$child_sex)
+```
+
+Breastfeeding status
+
+```{r}
+typeof(survey20$breastfeed_stat)
+unique(survey20$breastfeed_stat)
+survey20 <- survey20 %>%
+  mutate(breastfeeding = case_when(
+    breastfeed_stat %in% c(2, 4) ~ "Not",
+    breastfeed_stat == 3 ~ "Mix",
+    breastfeed_stat == 1 ~ "Well"
+  ))
+typeof(survey20$breastfeeding)
+table(survey20$breastfeeding)
+```
+
+Breastfeeding duration
+
+```{r}
+typeof(survey20$breastfeeding_duration)
+survey20 <- survey20 %>%
+  mutate(breastfeeding_cat = case_when(
+    breastfeeding_duration <= 24 ~ "<= 24 months",
+    breastfeeding_duration > 24 ~ "> 24 months"
+  ))
+typeof(survey20$breastfeeding_cat)
+table(survey20$breastfeeding_cat)
+```
+
+Number of people in the household
+
+```{r}
+typeof(survey20$people_no)
+survey20 <- survey20 %>%
+  mutate(hhpeople = case_when(
+    people_no <= 5 ~ "<= 5 people",
+    people_no > 5 ~ "> 5 people"
+  ))
+typeof(survey20$hhpeople)
+table(survey20$hhpeople)
+```
+
+Number of under five siblings
+
+```{r}
+typeof(survey20$u5_sibling)
+survey20 <- survey20 %>%
+  mutate(u5siblings_cat = case_when(
+    u5_sibling <= 1 ~ "<= 1 sibling",
+    u5_sibling > 1 ~ "> 1 sibling"
+  ))
+
+survey20 <- survey20 %>% 
+  mutate(u5 = case_when(
+    u5_sibling < 1 ~ "no sibling",
+    u5_sibling == 1 ~ "1 sibling",
+    u5_sibling > 1 ~ "> 1 sibling"
+  ))
+
+typeof(survey20$u5siblings_cat)
+table(survey20$u5siblings_cat)
+```
+
+Number of bedrooms in the house
+
+```{r}
+survey20 <- survey20 %>% 
+  mutate(bedrooms = case_when(
+    bedroom_no <= 2 ~ "<= 2 bedrooms",
+    bedroom_no > 2 ~ "> 2 bedrooms"
+  ))
+
+table(survey20$bedrooms)
+```
+
+Number of people sleeping in child's bedroom
+
+```{r}
+survey20 <- survey20 %>%
+  mutate(childsbedroom = case_when(
+    sleepinginchild_bedroom <= 3 ~ "<= 3 people in child's bedroom",
+    sleepinginchild_bedroom > 3 ~ "> 3 people in child's bedroom"
+  ))
+
+typeof(survey20$childsbedroom)
+table(survey20$childsbedroom)
+```
+
+Number of people in child's bed
+
+```{r}
+survey20 <- survey20 %>% 
+  mutate(childsbed = case_when(
+    child_bed <= 1 ~ "<= 1 people in child's bed",
+    child_bed > 1 ~ "> 1 people in child's bed"
+  ))
+
+survey20 <- survey20 %>%
+  mutate(bed = case_when(
+    child_bed < 1 ~ "sleeps alone",
+    child_bed == 1 ~ "sleeps with 1 person",
+    child_bed > 1 ~ "sleeps with > 1 person"
+  ))
+
+
+typeof(survey20$childsbed)
+table(survey20$bed)
+table(survey20$childsbed)
+table(survey20$child_bed)
+```
+
+Number of people in the household who smoke
+
+```{r}
+typeof(survey20$cigarette_smoking)
+unique(survey20$cigarette_smoking)
+table(survey20$cigarette_smoking)
+survey20 <- survey20 %>% 
+  mutate(smoking = case_when(
+    cigarette_smoking == 1 ~ "No",
+    cigarette_smoking %in% c(2, 3, 4, 5) ~ "Smoking"
+  ))
+
+typeof(survey20$smoking)
+table(survey20$smoking)
+```
+
+Child's vaccination status
+
+```{r}
+typeof(survey20$vaccine_supplements)
+table(survey20$vaccine_supplements)
+survey20 <- survey20 %>% 
+  mutate(vaccine = case_when(
+    vaccine_supplements %in% c("SURUA,VITAMIN A", "VITAMIN A", "ALL", "SURUA, VITAMIN", "SURUA AND VITAMIN A", "SURUA", "SURUA , VITAMIN", "VITAMIN", "MATONE", "SURUA,POLIO", "ROTARIX,VITAMIN A", "VITAMIN A, SURUA", "SURUA AND VITAMIN", "ROTA, POLIO", "SURUA, VITAMIN A", "POLIO,ROTARI", "VITAMIN A AND SURUA", "RUBELLA VITAMIN A", "VITAMIN, RUBELLA", "VITAMIN, SURUA", "VITAMIN A, DAWA ZA MINYOO", "SURUA,VITAMIN", "SURUA VITAMIN", "MATNE, SURUA", "BCG AND POLIO", "POLIO", "RUBELLA,POLIO,VITAMIN", "SURUA, MINYOO, MATONE", " SURUA AND VITAMIN A", "SUTRUA,VITAMIN", "SURUA, MATONE", "VITAMIN A,RUBELLA", "VITAMIN , SURUA", "SURUA,VITANIN", "ROTA , POLIO", "RUBELLA", "VITAMIN, MINYOO", "SURUA , VITAMN", "VITAMIN AND ROTARIX", "SURUA , MATONE") ~ "Vaccinated",
+    vaccine_supplements %in% c("", "NONE") ~ "Not Vaccinated"
+  ))
+
+typeof(survey20$vaccine)
+table(survey20$vaccine)
+```
+
+Child's HIV status
+
+```{r}
+typeof(survey20$HIV_status)
+unique(survey20$HIV_status)
+survey20 <- survey20 %>% 
+  mutate(HIV = case_when(
+    HIV_status == 1 ~ "HIV Negative",
+    HIV_status == 2 ~ "HIV Positive",
+    HIV_status == 3 ~ "Exposed Uninfected",
+    HIV_status == 4 ~ "Unknown"
+  ))
+table(survey20$HIV)
+
+survey20 <- survey20 %>% 
+  mutate(HIV_cat = case_when(
+    HIV %in% c("HIV Negative", "Exposed Uninfected") ~ "Negative",
+    HIV == "HIV Positive" ~ "Positive",
+    HIV == "Unknown" ~ "Unknown"
+  ))
+```
+
+Child's temperature
+
+```{r}
+typeof(survey20$temperature)
+survey20 <- survey20 %>%
+  mutate(temp_cat = case_when(
+    temperature <= 37.5 ~ "≤ 37.5",
+    temperature > 37.5 ~ "> 37.5"
+  ))
+typeof(survey20$temp_cat)
+table(survey20$temp_cat)
+```
+
+Child during cooking
+
+```{r}
+typeof(survey20$child_duringcooking)
+unique(survey20$child_duringcooking)
+survey20 <- survey20 %>% 
+  mutate(child_cooking = case_when(
+    child_duringcooking %in% c(4, 3) ~ "No",
+    child_duringcooking %in% c(1, 2) ~ "Yes"
+  ))
+
+typeof(survey20$child_cooking)
+table(survey20$child_cooking)
+```
+
+Type of fuel used in the household
+
+```{r}
+typeof(survey20$fuel_type)
+unique(survey20$fuel_type)
+survey20 <- survey20 %>% 
+  mutate(fueltype = case_when(
+    fuel_type == 1 ~ "Electricity",
+    fuel_type == 2 ~ "Gas",
+    fuel_type == 3 ~ "Firewood",
+    fuel_type == 4 ~ "Charcoal",
+    fuel_type == 5 ~ "Kerosene",
+    fuel_type == 6 ~ "Grains",
+    fuel_type == 7 ~ "Animal Wastes"
+  ))
+typeof(survey20$fueltype)
+table(survey20$fueltype)
+
+survey20 <- survey20 %>% 
+  mutate(fueltype_cat = case_when(
+    fueltype %in% c("Electricity", "Gas") ~ "Clean",
+    fueltype %in% c("Charcoal", "Kerosene", "Firewood")  ~ "Unclean"
+  ))
+
+table(survey20$fueltype_cat)
+```
+
+Antibiotic use
+
+```{r}
+typeof(survey20$antibiotic_use)
+table(survey20$antibiotic_use)
+```
+
+Child stunting
+
+```{r}
+survey20 <- survey20 %>% 
+  mutate(childsex = case_when(
+    child_sex == "Male" ~ "m",
+    child_sex == "Female" ~ "f"
+  ))
+
+stunting20 <- anthro_zscores(sex = survey20$childsex, age = survey20$child_age, weight = survey20$childweight, lenhei = survey20$childheight, measure = "L")
+
+survey20$stunting20 <- cut(stunting20$zlen,
+                   breaks = c(-Inf, -3, -2, Inf),
+                   labels = c("Severely Stunted", "Moderately Stunted", "Normal"))
+
+survey20 <- survey20 %>% 
+  mutate(stunting = case_when(
+    stunting20 %in% c("Severely Stunted", "Moderately Stunted") ~ "Stunted",
+    stunting20 == "Normal" ~ "Normal"
+  ))
+
+# 2. Categorize underweight status based on WHO cutoffs
+survey20$underweight_3 <- cut(
+  stunting20$zwei,
+  breaks = c(-Inf, -3, -2, Inf),
+  labels = c("Severely Underweight", "Moderately Underweight", "Normal")
+)
+
+# 3. Simplify categories into two (Underweight vs Normal)
+survey20 <- survey20 %>%
+  mutate(underweight_2 = case_when(
+    underweight_3 %in% c("Severely Underweight", "Moderately Underweight") ~ "Underweight",
+    underweight_3 == "Normal" ~ "Normal"
+  ))
+
+table(survey20$underweight_3)
+```
+
+Selecting similar variables
+
+```{r}
+survey20 <- survey20 %>% dplyr::select(PID, parent_sex, education_level, occupation, income, child_agecat, child_age, child_sex, breastfeeding, breastfeeding_cat, child_education, Clinic_attendance, hhpeople, u5, child_cough, bed, smoking, chronic_diseases, vaccine, HIV_cat, childweight, childheight, temp_cat, child_cooking, antibiotic_use, fueltype_cat, underweight_3, underweight_2)
+```
+
+Combining data sets with molecular data
+
+```{r}
+survey20 <- left_join(survey20, serotypes20, by = "PID")
+```
+
+Creating outcome variable
+
+```{r}
+survey20 <- survey20 %>%
+  mutate(colonization_status = ifelse(is.na(Final), 0, 1))
+
+survey20$colonization_status <- factor(survey20$colonization_status, levels = c(0, 1), labels = c("No", "Yes"))
+table(survey20$colonization_status)
+
+colonization_cat20 <- survey20 %>% 
+  group_by(colonization_status) %>%
+  summarize(count = n(),
+            percentage = n() / nrow(survey20) * 100)
+
+print(colonization_cat20)
+```
+
+Saving survey 20
+
+```{r}
+write.csv(survey20, "C:/Users/Matem/OneDrive/Respiatory (Dr.Ngocho)/Re_ SPN database/survey20.csv", row.names = FALSE)
+```
+

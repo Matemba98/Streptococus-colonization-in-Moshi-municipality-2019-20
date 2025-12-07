@@ -1,0 +1,334 @@
+---
+title: "Nasopharyngeal carriage 19_20"
+author: "Brian"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+# Run the chunk below to prepare your work space browser (history), clean console and delete and saved plots.
+
+rm(list=ls())
+while(!dev.cur())dev.off() 
+cat("\014")
+```
+
+```{r}
+# Load required packages using pacman
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, 
+               dplyr,
+               gtsummary, 
+               readr,
+               janitor,
+               haven,
+               anthro,
+               logbin,
+               purrr,
+               broom,
+               psych,
+               car,
+               glmnet,
+               vcd,
+               nortest,
+               olsrr,
+               MASS,
+               VIM,
+               naniar,
+               janitor,
+               scales
+               )
+```
+
+```{r}
+survey19 <- read.csv("C:/Users/Matem/OneDrive/Respiatory (Dr.Ngocho)/Re_ SPN database/survey19.csv")
+
+survey20 <- read.csv("C:/Users/Matem/OneDrive/Respiatory (Dr.Ngocho)/Re_ SPN database/survey20.csv")
+```
+
+Combining the two surveys
+
+```{r}
+spn <- dplyr::bind_rows(survey19, survey20)
+```
+
+Table 1
+
+```{r}
+vars <- c("parent_sex", "education_level", "occupation", "income", "child_agecat", "child_age", "child_sex", "breastfeeding", "breastfeeding_cat", "child_education", "Clinic_attendance", "hhpeople", "u5", "child_cough", "bed", "smoking", "chronic_diseases", "vaccine", "HIV_cat", "childweight", "childheight", "temp_cat", "child_cooking", "antibiotic_use", "fueltype_cat", "underweight_3", "underweight_2"
+)
+
+# --- Subset the dataset ---
+spn_subset <- spn %>% dplyr::select(any_of(vars))
+
+# --- Identify variable types ---
+categorical_vars <- spn_subset %>%
+  dplyr::select(where(~ is.character(.x) || is.factor(.x))) %>%
+  names()
+
+numeric_vars <- spn_subset %>%
+  dplyr::select(where(is.numeric)) %>%
+  names()
+
+# --- Table 1 for categorical variables ---
+cat_table <- spn_subset %>%
+  dplyr::select(all_of(categorical_vars)) %>%
+  map_dfr(
+    .f = ~ janitor::tabyl(.x, show_na = TRUE) %>%
+      janitor::adorn_totals("row") %>%
+      mutate(percent = round(percent, 1)),
+    .id = "variable"
+  ) %>%
+  rename(value = 2, n = 3, percent = 4) %>%
+  dplyr::select(variable, value, n, percent)
+
+# --- Table 1 for continuous variables ---
+num_table <- spn_subset %>%
+  dplyr::select(all_of(numeric_vars)) %>%
+  map_dfr(
+    .f = ~ {
+      x <- .x[!is.na(.x)]
+      tibble(
+        variable = deparse(substitute(.x)),   # placeholder; overwritten below
+        N = length(x),
+        mean = mean(x),
+        sd = sd(x),
+        median = median(x),
+        p25 = quantile(x, 0.25),
+        p75 = quantile(x, 0.75)
+      )
+    },
+    .id = "variable"
+  ) %>%
+  mutate(
+    summary = sprintf(
+      "%.2f ± %.2f (Median %.2f [IQR %.2f–%.2f])",
+      mean, sd, median, p25, p75
+    )
+  ) %>%
+  dplyr::select(variable, N, summary)
+
+# --- Combine both tables ---
+table1_full <- list(
+  categorical = cat_table,
+  continuous  = num_table
+)
+
+write.csv(table1_full$categorical, "Table1_categorical.csv", row.names = FALSE)
+write.csv(table1_full$continuous,  "Table1_continuous.csv",  row.names = FALSE)
+```
+
+#table 2
+
+```{r}
+table2_test <- function(data, variable, outcome) {
+  # prepare symbols
+  var_sym <- rlang::sym(variable)
+  out_sym <- rlang::sym(outcome)
+
+  # filter and coerce to factors (use proper tidy-eval on the LHS of :=)
+  df <- data %>%
+    dplyr::filter(!is.na(.data[[variable]]), !is.na(.data[[outcome]])) %>%
+    dplyr::mutate(
+      !!var_sym := as.factor(.data[[variable]]),
+      !!out_sym := as.factor(.data[[outcome]])
+    )
+
+  # contingency table (wide) for tests
+  contingency <- df %>%
+    dplyr::count(!!var_sym, !!out_sym) %>%
+    tidyr::pivot_wider(
+      names_from  = !!out_sym,
+      values_from = n,
+      values_fill = 0
+    )
+
+  # numeric matrix for tests (drop the first column which is the grouping variable)
+  mat <- as.matrix(contingency[, -1, drop = FALSE])
+
+  # compute expected cells safely
+  expected <- suppressWarnings(stats::chisq.test(mat)$expected)
+
+  # choose test
+  if (any(expected < 5)) {
+    test <- stats::fisher.test(mat, simulate.p.value = TRUE)
+    test_type <- "Fisher"
+    statistic_value <- NA_real_
+  } else {
+    test <- stats::chisq.test(mat)
+    test_type <- "Chi-square"
+    statistic_value <- as.numeric(test$statistic)
+  }
+
+  # get counts and percentages (long format)
+  proportions <- df %>%
+    dplyr::count(!!var_sym, !!out_sym) %>%
+    dplyr::group_by(!!var_sym) %>%
+    dplyr::mutate(
+      total = sum(n),
+      percent = n / total * 100
+    ) %>%
+    dplyr::ungroup() %>%
+    # rename the grouping columns to stable names
+    dplyr::rename(
+      category = !!var_sym,
+      status   = !!out_sym
+    )
+
+  # assemble final result, explicitly use dplyr::select to avoid masking
+  result <- proportions %>%
+    dplyr::mutate(
+      variable  = variable,
+      test_type = test_type,
+      statistic = statistic_value,
+      p_value   = test$p.value
+    ) %>%
+    dplyr::select(variable, category, status, n, percent, test_type, statistic, p_value)
+
+  return(result)
+}
+
+# Now run your analysis
+all_vars <- c(
+  "parent_sex", "education_level", "occupation", "income", "child_agecat", "child_sex", "breastfeeding", "breastfeeding_cat", "child_education", "Clinic_attendance", "hhpeople", "u5", "child_cough", "bed", "smoking", "chronic_diseases", "vaccine", "HIV_cat", "temp_cat", "child_cooking", "antibiotic_use", "fueltype_cat", "underweight_3", "underweight_2"
+)
+
+library(purrr)
+table2 <- purrr::map_dfr(all_vars, ~ table2_test(spn, variable = .x, outcome = "colonization_status"))
+write.csv(table2, "table2.csv", row.names = FALSE)
+```
+
+Bar plot for colonization status distributed by age
+
+```{r}
+bar_data <- spn %>%
+  filter(!is.na(child_agecat) & !is.na(colonization_status)) %>%
+  group_by(child_agecat, colonization_status) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  ungroup() %>%
+  bind_rows(
+    spn %>%
+      filter(!is.na(colonization_status)) %>%
+      group_by(colonization_status) %>%
+      summarise(count = n()) %>%
+      mutate(child_agecat = "Total")
+  ) %>%
+  group_by(child_agecat) %>%
+  mutate(proportion = count / sum(count))
+
+bar_plot <- bar_data %>%
+  ggplot(aes(x = child_agecat, y = proportion, fill = as.factor(colonization_status))) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_text(
+    aes(label = scales::percent(proportion, accuracy = 0.1)),
+    position = position_dodge(width = 0.9), vjust = -0.5
+  ) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  labs(x = "Child Age (months)", y = "Proportion", fill = "SPN carriage") +
+  scale_fill_manual(
+    values = c("No" = "#D1E9F6", "Yes" = "#1E2A5E"),
+    labels = c("Not carrier", "Carrier")
+  ) +
+  theme_minimal() +
+  ggtitle("Proportion of S.pneumoniae nasopharyngeal carriage of in children under 5 years N = 627")
+
+bar_plot
+
+# Save the plot
+ggsave("colonization_by_age_and_total.png", plot = bar_plot, width = 8, height = 6, dpi = 300)
+```
+
+Checking if the data is normally distributed (some numerical variables)
+
+```{r}
+hist(spn$child_age, probability = TRUE, main = "Histogram with Density Curve", col = "lightblue")
+lines(density(spn$child_age, na.rm = TRUE), col = "red", lwd = 2)
+
+qqnorm(spn$child_age, main = "Q-Q Plot for Normality")
+qqline(spn$child_age, col = "red", lwd = 2)
+
+boxplot(spn$child_age, main = "Boxplot of child age", col = "lightgreen")
+
+shapiro.test(spn$child_age)
+
+ad.test(spn$child_age)
+```
+
+Table 3: Crude analysis
+
+```{r}
+variables <- c("parent_sex", "education_level", "occupation", "income", "child_agecat", "child_sex", "breastfeeding", "breastfeeding_cat", "child_education", "Clinic_attendance", "hhpeople", "u5", "child_cough", "bed", "smoking", "chronic_diseases", "vaccine", "temp_cat", "child_cooking", "antibiotic_use", "fueltype_cat")
+
+spn <- spn %>%
+  mutate(
+    colonization_status = case_when(
+      colonization_status == "Yes" ~ 1,
+      colonization_status == "No"  ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+logbin_results <- map(variables, ~ logbin(reformulate(.x, response = "colonization_status"), data = spn))
+
+summary_results <- map(logbin_results, function(model) {
+  coef_df <- tidy(model, conf.int = TRUE, exponentiate = TRUE)
+  return(coef_df)
+})
+
+summary_results
+
+combined_results <- bind_rows(summary_results, .id = "Variable")
+print(combined_results)
+write.csv(combined_results, "logbin_results.csv", row.names = FALSE)
+```
+
+Final model
+
+```{r}
+full_model <- logbin(
+  colonization_status ~ child_sex + child_agecat + u5 + breastfeeding_cat + temp_cat + child_cough + antibiotic_use , 
+  data = spn, 
+  maxit = 1000000
+)
+
+summary(full_model)
+
+results_full_model <- data.frame(
+  Variable = names(coef(full_model)),
+  RR = exp(coef(full_model)),
+  CI_Lower = exp(confint(full_model)[, 1]),
+  CI_Upper = exp(confint(full_model)[, 2])
+)
+
+# Print results
+print(results_full_model)
+```
+Poisson regression
+```{r}
+library(sandwich)
+library(lmtest)
+
+mod_pois <- glm(
+  colonization_status ~ child_sex + child_agecat + u5 + breastfeeding_cat +
+    temp_cat + child_cough + antibiotic_use,
+  data = spn,
+  family = poisson(link = "log")
+)
+
+# robust standard errors
+cov_robust <- vcovHC(mod_pois, type = "HC0")
+robust_se <- sqrt(diag(cov_robust))
+
+results <- data.frame(
+  Variable = names(coef(mod_pois)),
+  RR = exp(coef(mod_pois)),
+  CI_Lower = exp(coef(mod_pois) - 1.96 * robust_se),
+  CI_Upper = exp(coef(mod_pois) + 1.96 * robust_se),
+  p_value = coeftest(mod_pois, cov_robust)[,4]
+)
+
+print(results)
+
+write.csv(results, "poisson_regression_results.csv", row.names = FALSE)
+```
+
