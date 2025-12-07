@@ -1,0 +1,96 @@
+"variable","value","n","percent"
+"parent_sex","Female",601,1
+"parent_sex","Male",25,0
+"parent_sex",NA,1,0
+"parent_sex","Total",627,1
+"education_level","No formal/Primary",298,0.5
+"education_level","Secondary/Higher",328,0.5
+"education_level",NA,1,0
+"education_level","Total",627,1
+"occupation","Employed/Bussiness",271,0.4
+"occupation","Unemployed/Farmer",326,0.5
+"occupation",NA,30,0
+"occupation","Total",627,1
+"income","> 50,000",214,0.3
+"income","≤ 50,000",256,0.4
+"income",NA,157,0.3
+"income","Total",627,1
+"child_agecat","> 24",317,0.5
+"child_agecat","≤ 24",308,0.5
+"child_agecat",NA,2,0
+"child_agecat","Total",627,1
+"child_sex","Female",313,0.5
+"child_sex","Male",314,0.5
+"child_sex","Total",627,1
+"breastfeeding","Mix",226,0.4
+"breastfeeding","Not",373,0.6
+"breastfeeding","Well",24,0
+"breastfeeding",NA,4,0
+"breastfeeding","Total",627,1
+"breastfeeding_cat","<= 24 months",339,0.5
+"breastfeeding_cat","> 24 months",60,0.1
+"breastfeeding_cat",NA,228,0.4
+"breastfeeding_cat","Total",627,1
+"child_education","No",566,0.9
+"child_education","Yes",60,0.1
+"child_education",NA,1,0
+"child_education","Total",627,1
+"Clinic_attendance","No",400,0.6
+"Clinic_attendance","Yes",225,0.4
+"Clinic_attendance",NA,2,0
+"Clinic_attendance","Total",627,1
+"hhpeople","<= 5 people",523,0.8
+"hhpeople","> 5 people",99,0.2
+"hhpeople",NA,5,0
+"hhpeople","Total",627,1
+"u5","1 sibling",108,0.2
+"u5","> 1 sibling",20,0
+"u5","no sibling",499,0.8
+"u5","Total",627,1
+"child_cough","No",424,0.7
+"child_cough","Yes",183,0.3
+"child_cough",NA,20,0
+"child_cough","Total",627,1
+"bed","sleeps alone",9,0
+"bed","sleeps with 1 person",133,0.2
+"bed","sleeps with > 1 person",457,0.7
+"bed",NA,28,0
+"bed","Total",627,1
+"smoking","No",562,0.9
+"smoking","Smoking",29,0
+"smoking",NA,36,0.1
+"smoking","Total",627,1
+"chronic_diseases","No",590,0.9
+"chronic_diseases","Yes",36,0.1
+"chronic_diseases",NA,1,0
+"chronic_diseases","Total",627,1
+"vaccine","Not Vaccinated",308,0.5
+"vaccine","Vaccinated",315,0.5
+"vaccine",NA,4,0
+"vaccine","Total",627,1
+"HIV_cat","Negative",580,0.9
+"HIV_cat","Positive",4,0
+"HIV_cat","Unknown",43,0.1
+"HIV_cat","Total",627,1
+"temp_cat","> 37.5",17,0
+"temp_cat","≤ 37.5",580,0.9
+"temp_cat",NA,30,0
+"temp_cat","Total",627,1
+"child_cooking","No",302,0.5
+"child_cooking","Yes",316,0.5
+"child_cooking",NA,9,0
+"child_cooking","Total",627,1
+"antibiotic_use","No",486,0.8
+"antibiotic_use","Yes",137,0.2
+"antibiotic_use",NA,4,0
+"antibiotic_use","Total",627,1
+"fueltype_cat","Clean",443,0.7
+"fueltype_cat","Unclean",183,0.3
+"fueltype_cat",NA,1,0
+"fueltype_cat","Total",627,1
+"underweight_3","Normal",623,1
+"underweight_3",NA,4,0
+"underweight_3","Total",627,1
+"underweight_2","Normal",623,1
+"underweight_2",NA,4,0
+"underweight_2","Total",627,1
